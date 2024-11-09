@@ -7,6 +7,7 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./tailwind.css";
 
 export const links: LinksFunction = () => [
@@ -31,7 +32,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="w-screen h-screen flex justify-stretch items-stretch">
         {children}
         <ScrollRestoration />
         <Scripts />
