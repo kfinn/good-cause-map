@@ -1,17 +1,20 @@
 import connect from ".";
 
-export async function getBuildingsCount({
-  west,
-  north,
-  east,
-  south,
-}: {
-  west: number;
-  north: number;
-  east: number;
-  south: number;
-}) {
-  const sql = connect();
+export async function getBuildingsCount(
+  databaseUrl: string,
+  {
+    west,
+    north,
+    east,
+    south,
+  }: {
+    west: number;
+    north: number;
+    east: number;
+    south: number;
+  }
+) {
+  const sql = connect(databaseUrl);
 
   const results = await sql`
       SELECT
@@ -30,18 +33,21 @@ export async function getBuildingsCount({
   return results[0]!.buildingsCount as number;
 }
 
-export async function getBuildings({
-  west,
-  north,
-  east,
-  south,
-}: {
-  west: number;
-  north: number;
-  east: number;
-  south: number;
-}) {
-  const sql = connect();
+export async function getBuildings(
+  databaseUrl: string,
+  {
+    west,
+    north,
+    east,
+    south,
+  }: {
+    west: number;
+    north: number;
+    east: number;
+    south: number;
+  }
+) {
+  const sql = connect(databaseUrl);
 
   return await sql`
     SELECT
@@ -90,17 +96,20 @@ export async function getBuildings({
 
 const CLUSTERS_COUNT = 24 * 24;
 
-export async function getBuildingClusters({
-  west,
-  north,
-  east,
-  south,
-}: {
-  west: number;
-  north: number;
-  east: number;
-  south: number;
-}) {
+export async function getBuildingClusters(
+  databaseUrl: string,
+  {
+    west,
+    north,
+    east,
+    south,
+  }: {
+    west: number;
+    north: number;
+    east: number;
+    south: number;
+  }
+) {
   const latitudeSpan = north - south;
   const longitudeSpan = east - west;
   const totalSpan = latitudeSpan + longitudeSpan;
@@ -115,7 +124,7 @@ export async function getBuildingClusters({
   );
   const longitudeDivision = longitudeSpan / longitudeClustersCount;
 
-  const sql = connect();
+  const sql = connect(databaseUrl);
 
   return await sql`
     WITH variables AS (

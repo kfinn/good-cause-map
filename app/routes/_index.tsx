@@ -51,6 +51,7 @@ interface ClustersLoaderData {
 
 export async function loader({
   request,
+  context,
 }: LoaderFunctionArgs): Promise<BuildingsLoaderData | ClustersLoaderData> {
   const { searchParams } = new URL(request.url);
   const zoom = parseFloatWIthDefault(searchParams.get("zoom"), DEFAULT_ZOOM);
@@ -84,10 +85,16 @@ export async function loader({
     east: east + eastWestAdjustment,
     south: south - northSouthAdjustment,
   };
-  const buildingsCount = await getBuildingsCount(buildingsFIlter);
+  const buildingsCount = await getBuildingsCount(
+    context.cloudflare.env.DATABASE_URL,
+    buildingsFIlter
+  );
 
   if (buildingsCount <= MAX_BUILDINGS) {
-    const buildings = await getBuildings(buildingsFIlter);
+    const buildings = await getBuildings(
+      context.cloudflare.env.DATABASE_URL,
+      buildingsFIlter
+    );
     return {
       type: "buildings",
       data: {
@@ -108,7 +115,10 @@ export async function loader({
     };
   }
 
-  const clusters = await getBuildingClusters(buildingsFIlter);
+  const clusters = await getBuildingClusters(
+    context.cloudflare.env.DATABASE_URL,
+    buildingsFIlter
+  );
   return {
     type: "clusters",
     data: {
