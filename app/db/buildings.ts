@@ -1,7 +1,33 @@
+import { Sql } from "postgres";
 import connect from ".";
 
-export async function getBuildingsCount(
+interface BoundingBox {
+  west: number;
+  north: number;
+  east: number;
+  south: number;
+}
+
+const MAX_BUILDINGS = 128 * 128 * 2;
+
+export async function getBuildingsOrClusters(
   databaseUrl: string,
+  boundingBox: BoundingBox
+) {
+  const sql = connect(databaseUrl);
+
+  const buildingsCount = await getBuildingsCount(sql, boundingBox);
+  const result =
+    buildingsCount > MAX_BUILDINGS
+      ? { clusters: await getBuildingClusters(sql, boundingBox) }
+      : { buildings: await getBuildings(sql, boundingBox) };
+
+  sql.end();
+  return result;
+}
+
+async function getBuildingsCount(
+  sql: Sql,
   {
     west,
     north,
@@ -14,8 +40,6 @@ export async function getBuildingsCount(
     south: number;
   }
 ) {
-  const sql = connect(databaseUrl);
-
   const results = await sql`
       SELECT
           COUNT(*) as buildings_count
@@ -33,8 +57,8 @@ export async function getBuildingsCount(
   return results[0]!.buildingsCount as number;
 }
 
-export async function getBuildings(
-  databaseUrl: string,
+async function getBuildings(
+  sql: Sql,
   {
     west,
     north,
@@ -47,8 +71,6 @@ export async function getBuildings(
     south: number;
   }
 ) {
-  const sql = connect(databaseUrl);
-
   return await sql`
     SELECT
         pluto_latest.bbl AS bbl,
@@ -94,10 +116,10 @@ export async function getBuildings(
   `;
 }
 
-const CLUSTERS_COUNT = 24 * 24;
+const TARGET_CLUSTERS_COUNT = 20000;
 
-export async function getBuildingClusters(
-  databaseUrl: string,
+async function getBuildingClusters(
+  sql: Sql,
   {
     west,
     north,
@@ -112,41 +134,16 @@ export async function getBuildingClusters(
 ) {
   const latitudeSpan = north - south;
   const longitudeSpan = east - west;
-  const totalSpan = latitudeSpan + longitudeSpan;
-  const latitudeClustersCount = Math.max(
-    1,
-    Math.round((CLUSTERS_COUNT * latitudeSpan) / totalSpan)
-  );
-  const latitudeDivision = latitudeSpan / latitudeClustersCount;
-  const longitudeClustersCount = Math.max(
-    1,
-    Math.round((CLUSTERS_COUNT * longitudeSpan) / totalSpan)
-  );
-  const longitudeDivision = longitudeSpan / longitudeClustersCount;
-
-  const sql = connect(databaseUrl);
+  const approximateArea = latitudeSpan * longitudeSpan;
+  const hexSize = Math.sqrt(approximateArea / TARGET_CLUSTERS_COUNT);
 
   return await sql`
-    WITH variables AS (
-      SELECT * FROM (
-        VALUES
-          (
-            ${west}::double precision,
-            ${north}::double precision,
-            ${east}::double precision,
-            ${south}::double precision,
-            ${latitudeClustersCount}::integer,
-            ${longitudeClustersCount}::integer,
-            ${latitudeDivision}::double precision,
-            ${longitudeDivision}::double precision
-          )
-      ) AS variables(west, north, east, south, latitude_clusters_count, longitude_clusters_count, latitude_division, longitude_division)
-    )
     SELECT
-        COALESCE(SUM(pluto_latest.unitsres), 0)::bigint AS unitsres,
-        WIDTH_BUCKET(pluto_latest.latitude, variables.south, variables.north, variables.latitude_clusters_count) * variables.latitude_division::double precision - (variables.latitude_division::double precision / 2) + variables.south::double precision AS latitude,
-        WIDTH_BUCKET(pluto_latest.longitude, variables.west, variables.east, variables.longitude_clusters_count) * variables.longitude_division::double precision - (variables.longitude_division::double precision / 2) + variables.west::double precision AS longitude,
-        COALESCE(SUM(rentstab_v2.uc2022), 0) AS rentstab_v2_uc2022,
+        COALESCE(SUM(pluto_latest.unitsres), 0)::integer AS unitsres,
+        COUNT(*)::integer as buildings_count,
+        ST_X(ST_Centroid(hexes.geom))::double precision as longitude,
+        ST_Y(ST_Centroid(hexes.geom))::double precision as latitude,
+        COALESCE(SUM(rentstab_v2.uc2022), 0)::integer AS rentstab_v2_uc2022,
         SUM(
             CASE WHEN (
                 COALESCE(fc_shd_building.datahcrlihtc, false)
@@ -179,17 +176,16 @@ export async function getBuildingClusters(
             ) THEN 1 ELSE 0 END
         )::integer AS is_eligible_for_good_cause_eviction_count
     FROM
-        pluto_latest
-        CROSS JOIN variables
+        ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north})) AS hexes
+        JOIN pluto_latest ON hexes.geom ~ ST_POINT(pluto_latest.longitude, pluto_latest.latitude)
         LEFT JOIN rentstab_v2 ON rentstab_v2.ucbbl = pluto_latest.bbl
         LEFT JOIN fc_shd_building ON fc_shd_building.bbl = pluto_latest.bbl
     WHERE
-        pluto_latest.longitude > variables.west
-        AND pluto_latest.latitude < variables.north
-        AND pluto_latest.longitude < variables.east
-        AND pluto_latest.latitude > variables.south
+        pluto_latest.longitude > ${west}::double precision
+        AND pluto_latest.latitude < ${north}::double precision
+        AND pluto_latest.longitude < ${east}::double precision
+        AND pluto_latest.latitude > ${south}::double precision
     GROUP BY
-        WIDTH_BUCKET(pluto_latest.latitude, variables.south, variables.north, variables.latitude_clusters_count) * variables.latitude_division::double precision - (variables.latitude_division::double precision / 2) + variables.south::double precision,
-        WIDTH_BUCKET(pluto_latest.longitude, variables.west, variables.east, variables.longitude_clusters_count) * variables.longitude_division::double precision - (variables.longitude_division::double precision / 2) + variables.west::double precision
+        hexes.geom
   `;
 }

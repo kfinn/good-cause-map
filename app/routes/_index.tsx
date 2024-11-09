@@ -5,11 +5,7 @@ import _ from "lodash";
 import { MapEvent } from "mapbox-gl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layer, Map, Source, ViewStateChangeEvent } from "react-map-gl";
-import {
-  getBuildingClusters,
-  getBuildings,
-  getBuildingsCount,
-} from "~/db/buildings";
+import { getBuildingsOrClusters } from "~/db/buildings";
 
 export const meta: MetaFunction = () => {
   return [
@@ -36,8 +32,6 @@ function parseFloatWIthDefault(
   }
   return defaultFloat;
 }
-
-const MAX_BUILDINGS = 128 * 128 * 2;
 
 interface BuildingsLoaderData {
   type: "buildings";
@@ -85,21 +79,18 @@ export async function loader({
     east: east + eastWestAdjustment,
     south: south - northSouthAdjustment,
   };
-  const buildingsCount = await getBuildingsCount(
+  const buildingsOrClusters = await getBuildingsOrClusters(
     context.cloudflare.env.DATABASE_URL,
     buildingsFIlter
   );
+  console.log(buildingsOrClusters);
 
-  if (buildingsCount <= MAX_BUILDINGS) {
-    const buildings = await getBuildings(
-      context.cloudflare.env.DATABASE_URL,
-      buildingsFIlter
-    );
+  if ("buildings" in buildingsOrClusters) {
     return {
       type: "buildings",
       data: {
         type: "FeatureCollection",
-        features: _.map(buildings, (building) => ({
+        features: _.map(buildingsOrClusters.buildings, (building) => ({
           type: "Feature",
           properties: {
             ...building,
@@ -113,26 +104,22 @@ export async function loader({
         })),
       },
     };
+  } else {
+    return {
+      type: "clusters",
+      data: {
+        type: "FeatureCollection",
+        features: _.map(buildingsOrClusters.clusters, (cluster) => ({
+          type: "Feature",
+          properties: cluster,
+          geometry: {
+            type: "Point",
+            coordinates: [cluster.longitude, cluster.latitude],
+          },
+        })),
+      },
+    };
   }
-
-  const clusters = await getBuildingClusters(
-    context.cloudflare.env.DATABASE_URL,
-    buildingsFIlter
-  );
-  return {
-    type: "clusters",
-    data: {
-      type: "FeatureCollection",
-      features: _.map(clusters, (cluster) => ({
-        type: "Feature",
-        properties: cluster,
-        geometry: {
-          type: "Point",
-          coordinates: [cluster.longitude, cluster.latitude],
-        },
-      })),
-    },
-  };
 }
 
 export default function Index() {
