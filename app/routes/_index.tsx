@@ -1,4 +1,4 @@
-import geoViewport from "@mapbox/geo-viewport";
+import { bounds } from "@placemarkio/geo-viewport";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import _ from "lodash";
@@ -71,11 +71,10 @@ export async function loader({
     DEFAULT_MAP_HEIGHT
   );
 
-  const [west, south, east, north] = geoViewport.bounds(
-    [longitude, latitude],
-    zoom,
-    [mapWidth, mapHeight]
-  );
+  const [west, south, east, north] = bounds([longitude, latitude], zoom, [
+    mapWidth,
+    mapHeight,
+  ]);
   const northSouthAdjustment = (north - south) * 0.1;
   const eastWestAdjustment = (east - west) * 0.1;
 

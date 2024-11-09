@@ -13,7 +13,7 @@
     "typegen": "wrangler types"
   },
   "dependencies": {
-    "@mapbox/geo-viewport": "^0.5.0",
+    "@placemarkio/geo-viewport": "^1.0.2",
     "@remix-run/cloudflare": "^2.13.1",
     "@remix-run/cloudflare-pages": "^2.13.1",
     "@remix-run/react": "^2.13.1",
@@ -46,7 +46,7 @@
     "typescript": "^5.1.6",
     "vite": "^5.1.0",
     "vite-tsconfig-paths": "^4.2.1",
-    "wrangler": "3.57.1"
+    "wrangler": "^3.57.1"
   },
   "engines": {
     "node": ">=20.0.0"

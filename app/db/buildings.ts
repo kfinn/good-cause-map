@@ -1,4 +1,4 @@
-import sql from ".";
+import connect from ".";
 
 export async function getBuildingsCount({
   west,
@@ -11,6 +11,8 @@ export async function getBuildingsCount({
   east: number;
   south: number;
 }) {
+  const sql = connect();
+
   const results = await sql`
       SELECT
           COUNT(*) as buildings_count
@@ -39,6 +41,8 @@ export async function getBuildings({
   east: number;
   south: number;
 }) {
+  const sql = connect();
+
   return await sql`
     SELECT
         pluto_latest.bbl AS bbl,
@@ -110,6 +114,8 @@ export async function getBuildingClusters({
     Math.round((CLUSTERS_COUNT * longitudeSpan) / totalSpan)
   );
   const longitudeDivision = longitudeSpan / longitudeClustersCount;
+
+  const sql = connect();
 
   return await sql`
     WITH variables AS (
