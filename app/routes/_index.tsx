@@ -89,7 +89,6 @@ export async function loader({
 
   if (buildingsCount <= MAX_BUILDINGS) {
     const buildings = await getBuildings(buildingsFIlter);
-
     return {
       type: "buildings",
       data: {
@@ -220,7 +219,7 @@ export default function Index() {
               "heatmap-radius": {
                 stops: [
                   [15, 50],
-                  [18, 25],
+                  [18, 100],
                 ],
               },
               "heatmap-opacity": {

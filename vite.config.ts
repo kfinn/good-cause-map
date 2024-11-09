@@ -2,6 +2,7 @@ import {
   vitePlugin as remix,
   cloudflareDevProxyVitePlugin as remixCloudflareDevProxy,
 } from "@remix-run/dev";
+import path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -11,7 +12,14 @@ declare module "@remix-run/cloudflare" {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  resolve: {
+    alias: {
+      ...(mode === "development" && {
+        postgres: path.resolve(__dirname, "node_modules/postgres/src/index.js"),
+      }),
+    },
+  },
   plugins: [
     remixCloudflareDevProxy(),
     remix({
@@ -25,4 +33,4 @@ export default defineConfig({
     }),
     tsconfigPaths(),
   ],
-});
+}));
