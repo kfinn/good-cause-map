@@ -204,14 +204,23 @@ export default function Index() {
             type="heatmap"
             maxzoom={18}
             paint={{
-              "heatmap-weight": {
-                property: "unitsres",
-                type: "exponential",
-                stops: [
-                  [1, 0],
-                  [500, 1],
+              "heatmap-weight": [
+                "interpolate",
+                ["linear"],
+                [
+                  "match",
+                  ["get", "isEligibleForGoodCauseEviction"],
+                  1,
+                  ["get", "unitsres"],
+                  0,
+                  0,
+                  0,
                 ],
-              },
+                0,
+                0,
+                20,
+                1,
+              ],
               "heatmap-radius": {
                 stops: [
                   [15, 50],
@@ -219,11 +228,8 @@ export default function Index() {
                 ],
               },
               "heatmap-opacity": {
-                type: "interval",
-                stops: [
-                  [17, 1],
-                  [18, 0],
-                ],
+                type: "exponential",
+                stops: [[17, 1], [18, 0]],
               },
             }}
           />
