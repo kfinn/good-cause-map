@@ -35,12 +35,18 @@ function parseFloatWIthDefault(
 
 interface BuildingsLoaderData {
   type: "buildings";
-  data: unknown;
+  data: {
+    type: "FeatureCollection";
+    features: { properties: Record<string, unknown> }[];
+  };
 }
 
 interface ClustersLoaderData {
   type: "clusters";
-  data: unknown;
+  data: {
+    type: "FeatureCollection";
+    features: { properties: Record<string, unknown> }[];
+  };
 }
 
 export async function loader({
@@ -79,12 +85,12 @@ export async function loader({
     east: east + eastWestAdjustment,
     south: south - northSouthAdjustment,
   };
+
   const buildingsOrClusters = await getBuildingsOrClusters(
     context.cloudflare.env.DATABASE_URL,
+    request.signal,
     buildingsFIlter
   );
-  console.log(buildingsOrClusters);
-
   if ("buildings" in buildingsOrClusters) {
     return {
       type: "buildings",
@@ -112,10 +118,7 @@ export async function loader({
         features: _.map(buildingsOrClusters.clusters, (cluster) => ({
           type: "Feature",
           properties: cluster,
-          geometry: {
-            type: "Point",
-            coordinates: [cluster.longitude, cluster.latitude],
-          },
+          geometry: cluster.geom,
         })),
       },
     };
@@ -170,6 +173,14 @@ export default function Index() {
   }, [longitudeSearchParam]);
 
   useEffect(() => {
+    if (
+      Math.abs(zoom - zoomSearchParam) < 0.25 &&
+      Math.abs(latitude - latitudeSearchParam) < 0.0000001 &&
+      Math.abs(longitude - longitudeSearchParam) < 0.0000001
+    ) {
+      return;
+    }
+
     const timeout = setTimeout(() => {
       setUrlSearchParams({
         zoom: zoom.toString(),
@@ -181,9 +192,43 @@ export default function Index() {
     }, 200);
 
     return () => clearTimeout(timeout);
-  }, [latitude, longitude, mapHeight, mapWidth, setUrlSearchParams, zoom]);
+  }, [
+    latitude,
+    latitudeSearchParam,
+    longitude,
+    longitudeSearchParam,
+    mapHeight,
+    mapWidth,
+    setUrlSearchParams,
+    zoom,
+    zoomSearchParam,
+  ]);
 
   const { type, data } = useLoaderData<typeof loader>();
+
+  const { maxUnitsres, maxEligibleProportion } = useMemo(() => {
+    if (type !== "clusters") {
+      return {
+        maxUnitsres: 0,
+        maxEligibleProportion: 0,
+      };
+    }
+
+    return {
+      maxUnitsres: _.max(
+        _.map(data.features, ({ properties: { unitsres } }) => unitsres)
+      ),
+      maxEligibleProportion: _.max(
+        _.map(
+          data.features,
+          ({
+            properties: { unitsres, isEligibleForGoodCauseEvictionUnitsCount },
+          }) =>
+            isEligibleForGoodCauseEvictionUnitsCount! / _.max([1, unitsres])!
+        )
+      ),
+    };
+  }, [data.features, type]);
 
   return (
     <Map
@@ -199,45 +244,9 @@ export default function Index() {
       {type === "buildings" ? (
         <Source id="buildings" type="geojson" data={data} key="buildings">
           <Layer
-            id="buildings-heatmap"
-            source="buildings"
-            type="heatmap"
-            maxzoom={18}
-            paint={{
-              "heatmap-weight": [
-                "interpolate",
-                ["linear"],
-                [
-                  "match",
-                  ["get", "isEligibleForGoodCauseEviction"],
-                  1,
-                  ["get", "unitsres"],
-                  0,
-                  0,
-                  0,
-                ],
-                0,
-                0,
-                20,
-                1,
-              ],
-              "heatmap-radius": {
-                stops: [
-                  [15, 50],
-                  [18, 100],
-                ],
-              },
-              "heatmap-opacity": {
-                type: "exponential",
-                stops: [[17, 1], [18, 0]],
-              },
-            }}
-          />
-          <Layer
             id="buildings"
             source="buildings"
             type="circle"
-            minzoom={17}
             paint={{
               "circle-radius": 7,
               "circle-color": [
@@ -249,12 +258,6 @@ export default function Index() {
                 "white",
                 "white",
               ],
-              "circle-opacity": {
-                stops: [
-                  [17, 0],
-                  [18, 1],
-                ],
-              },
             }}
           />
         </Source>
@@ -263,25 +266,32 @@ export default function Index() {
           <Layer
             id="clusters-heatmap"
             source="clusters"
-            type="heatmap"
-            maxzoom={18}
+            type="fill"
             paint={{
-              "heatmap-weight": {
-                property: "isEligibleForGoodCauseEvictionCount",
-                type: "exponential",
-                stops: [
-                  [1, 0],
-                  [50, 1],
+              "fill-opacity": [
+                "interpolate",
+                ["linear"],
+                ["get", "unitsres"],
+                0,
+                0,
+                1,
+                0.25,
+                maxUnitsres,
+                0.6,
+              ],
+              "fill-color": [
+                "interpolate",
+                ["linear"],
+                [
+                  "/",
+                  ["get", "isEligibleForGoodCauseEvictionUnitsCount"],
+                  ["max", ["get", "unitsres"], 1],
                 ],
-              },
-              "heatmap-radius": 50,
-              "heatmap-opacity": {
-                type: "interval",
-                stops: [
-                  [17, 1],
-                  [18, 0],
-                ],
-              },
+                0,
+                "white",
+                maxEligibleProportion,
+                "purple",
+              ],
             }}
           />
         </Source>

@@ -8,25 +8,40 @@ interface BoundingBox {
   south: number;
 }
 
-const MAX_BUILDINGS = 128 * 128 * 2;
+const MAX_BUILDINGS = 10000;
 
 export async function getBuildingsOrClusters(
   databaseUrl: string,
+  signal: AbortSignal,
   boundingBox: BoundingBox
 ) {
   const sql = connect(databaseUrl);
 
-  const buildingsCount = await getBuildingsCount(sql, boundingBox);
+  const {
+    buildingsCount,
+    minLatitude,
+    minLongitude,
+    maxLatitude,
+    maxLongitude,
+  } = await getBuildingsStats(sql, boundingBox);
+
+  const clampedBoundingBox = {
+    west: Math.max(boundingBox.west, minLongitude),
+    north: Math.min(boundingBox.north, maxLatitude),
+    east: Math.min(boundingBox.east, maxLongitude),
+    south: Math.max(boundingBox.south, minLatitude),
+  };
+
   const result =
     buildingsCount > MAX_BUILDINGS
-      ? { clusters: await getBuildingClusters(sql, boundingBox) }
-      : { buildings: await getBuildings(sql, boundingBox) };
+      ? { clusters: await getBuildingClusters(sql, signal, clampedBoundingBox) }
+      : { buildings: await getBuildings(sql, clampedBoundingBox) };
 
   sql.end();
   return result;
 }
 
-async function getBuildingsCount(
+async function getBuildingsStats(
   sql: Sql,
   {
     west,
@@ -42,7 +57,11 @@ async function getBuildingsCount(
 ) {
   const results = await sql`
       SELECT
-          COUNT(*) as buildings_count
+          COUNT(*) as buildings_count,
+          MIN(pluto_latest.latitude) as min_latitude,
+          MAX(pluto_latest.latitude) as max_latitude,
+          MIN(pluto_latest.longitude) as min_longitude,
+          MAX(pluto_latest.longitude) as max_longitude
       FROM
           pluto_latest
           LEFT JOIN rentstab_v2 ON rentstab_v2.ucbbl = pluto_latest.bbl
@@ -54,7 +73,7 @@ async function getBuildingsCount(
           AND pluto_latest.latitude > ${south}::double precision
   `;
 
-  return results[0]!.buildingsCount as number;
+  return results[0]!;
 }
 
 async function getBuildings(
@@ -120,6 +139,7 @@ const TARGET_CLUSTERS_COUNT = 20000;
 
 async function getBuildingClusters(
   sql: Sql,
+  signal: AbortSignal,
   {
     west,
     north,
@@ -137,10 +157,11 @@ async function getBuildingClusters(
   const approximateArea = latitudeSpan * longitudeSpan;
   const hexSize = Math.sqrt(approximateArea / TARGET_CLUSTERS_COUNT);
 
-  return await sql`
+  const query = sql`
     SELECT
         COALESCE(SUM(pluto_latest.unitsres), 0)::integer AS unitsres,
         COUNT(*)::integer as buildings_count,
+        ST_AsGeoJSON(hexes.geom)::json as geom,
         ST_X(ST_Centroid(hexes.geom))::double precision as longitude,
         ST_Y(ST_Centroid(hexes.geom))::double precision as latitude,
         COALESCE(SUM(rentstab_v2.uc2022), 0)::integer AS rentstab_v2_uc2022,
@@ -174,7 +195,27 @@ async function getBuildingClusters(
                     OR COALESCE(fc_shd_building.datanycha, false)
                 )
             ) THEN 1 ELSE 0 END
-        )::integer AS is_eligible_for_good_cause_eviction_count
+        )::integer AS is_eligible_for_good_cause_eviction_count,
+        SUM(
+            CASE WHEN (
+                pluto_latest.yearbuilt < 2009
+                AND pluto_latest.unitsres >= 10
+                AND pluto_latest.bldgclass IN (
+                    'C0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C7', 'C9', 'CB', 'CM',
+                    'D1', 'D2', 'D3', 'D5', 'D6', 'D7', 'D8', 'D9', 'DB',
+                    'S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S9'
+                )
+                AND NOT (
+                    COALESCE(fc_shd_building.datahcrlihtc, false)
+                    OR COALESCE(fc_shd_building.datahpd, false)
+                    OR COALESCE(fc_shd_building.datahudlihtc, false)
+                    OR COALESCE(fc_shd_building.datahudcon, false)
+                    OR COALESCE(fc_shd_building.datahudfin, false)
+                    OR COALESCE(fc_shd_building.dataml, false)
+                    OR COALESCE(fc_shd_building.datanycha, false)
+                )
+            ) THEN pluto_latest.unitsres ELSE 0 END
+        )::integer AS is_eligible_for_good_cause_eviction_units_count
     FROM
         ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north})) AS hexes
         JOIN pluto_latest ON hexes.geom ~ ST_POINT(pluto_latest.longitude, pluto_latest.latitude)
@@ -187,5 +228,12 @@ async function getBuildingClusters(
         AND pluto_latest.latitude > ${south}::double precision
     GROUP BY
         hexes.geom
-  `;
+    HAVING count(pluto_latest.*) > 0
+  `.execute();
+
+  const abortListener = () => query.cancel();
+  signal.addEventListener("abort", abortListener);
+  const result = await query;
+  signal.removeEventListener("abort", abortListener);
+  return result;
 }
