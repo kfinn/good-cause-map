@@ -162,8 +162,6 @@ async function getBuildingClusters(
         COALESCE(SUM(pluto_latest.unitsres), 0)::integer AS unitsres,
         COUNT(*)::integer as buildings_count,
         ST_AsGeoJSON(hexes.geom)::json as geom,
-        ST_X(ST_Centroid(hexes.geom))::double precision as longitude,
-        ST_Y(ST_Centroid(hexes.geom))::double precision as latitude,
         COALESCE(SUM(rentstab_v2.uc2022), 0)::integer AS rentstab_v2_uc2022,
         SUM(
             CASE WHEN (
@@ -217,8 +215,8 @@ async function getBuildingClusters(
             ) THEN pluto_latest.unitsres ELSE 0 END
         )::integer AS is_eligible_for_good_cause_eviction_units_count
     FROM
-        ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north})) AS hexes
-        JOIN pluto_latest ON hexes.geom ~ ST_POINT(pluto_latest.longitude, pluto_latest.latitude)
+        ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)) AS hexes
+        JOIN pluto_latest ON hexes.geom ~ pluto_latest.latitudelongitudegeom
         LEFT JOIN rentstab_v2 ON rentstab_v2.ucbbl = pluto_latest.bbl
         LEFT JOIN fc_shd_building ON fc_shd_building.bbl = pluto_latest.bbl
     WHERE
