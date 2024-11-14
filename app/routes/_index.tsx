@@ -100,13 +100,9 @@ export async function loader({
           type: "Feature",
           properties: {
             ...building,
-            isEligibleForGoodCauseEviction:
-              building.isEligibleForGoodCauseEviction ? 1 : 0,
+            eligible: building.eligible ? 1 : 0,
           },
-          geometry: {
-            type: "Point",
-            coordinates: [building.longitude, building.latitude],
-          },
+          geometry: building.geom,
         })),
       },
     };
@@ -221,10 +217,8 @@ export default function Index() {
       maxEligibleProportion: _.max(
         _.map(
           data.features,
-          ({
-            properties: { unitsres, isEligibleForGoodCauseEvictionUnitsCount },
-          }) =>
-            isEligibleForGoodCauseEvictionUnitsCount! / _.max([1, unitsres])!
+          ({ properties: { unitsres, eligibleUnitsCount } }) =>
+            eligibleUnitsCount! / _.max([1, unitsres])!
         )
       ),
     };
@@ -251,7 +245,7 @@ export default function Index() {
               "circle-radius": 7,
               "circle-color": [
                 "match",
-                ["get", "isEligibleForGoodCauseEviction"],
+                ["get", "eligible"],
                 1,
                 "purple",
                 0,
@@ -284,7 +278,7 @@ export default function Index() {
                 ["linear"],
                 [
                   "/",
-                  ["get", "isEligibleForGoodCauseEvictionUnitsCount"],
+                  ["get", "eligibleUnitsCount"],
                   ["max", ["get", "unitsres"], 1],
                 ],
                 0,
