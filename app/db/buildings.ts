@@ -88,6 +88,15 @@ async function getBuildings(
   return await sql`
     SELECT
         bbl,
+        ST_X(geom)::double precision AS longitude,
+        ST_Y(geom)::double precision AS latitude,
+        address,
+        unitsres::integer,
+        post_hsta_rs_units::integer,
+        co_issued::date,
+        bldgclass,
+        wow_portfolio_units::integer,
+        wow_portfolio_bbls::integer,
         ST_AsGeoJSON(geom)::json AS geom,
         eligible
     FROM
@@ -122,8 +131,15 @@ async function getBuildingClusters(
   const query = sql`
     SELECT
         COALESCE(SUM(unitsres), 0)::integer AS unitsres,
+        COALESCE(SUM(post_hsta_rs_units), 0)::integer AS post_hsta_rs_units,
+        ST_X(ST_Centroid(hexes.geom))::double precision AS longitude,
+        ST_Y(ST_Centroid(hexes.geom))::double precision AS latitude,
         ST_AsGeoJSON(hexes.geom)::json as geom,
-        SUM(CASE WHEN eligible THEN unitsres ELSE 0 END)::integer AS eligible_units_count
+        COUNT(gce_eligibility.*)::integer AS bbls_count,
+        MAX(co_issued)::date AS max_co_issued,
+        MIN(co_issued)::date AS min_co_issued,
+        SUM(CASE WHEN eligible THEN unitsres ELSE 0 END)::integer AS eligible_units_count,
+        SUM(CASE WHEN eligible THEN 1 ELSE 0 END)::integer AS eligible_bbls_count
     FROM
         ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)) AS hexes
         JOIN gce_eligibility ON hexes.geom ~ gce_eligibility.geom

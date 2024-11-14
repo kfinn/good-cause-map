@@ -2,9 +2,15 @@ import { bounds } from "@placemarkio/geo-viewport";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import { useLoaderData, useSearchParams } from "@remix-run/react";
 import _ from "lodash";
-import { MapEvent } from "mapbox-gl";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Layer, Map, Source, ViewStateChangeEvent } from "react-map-gl";
+import { MapEvent, MapMouseEvent } from "mapbox-gl";
+import pluralize from "pluralize";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
+import { Layer, Map, Popup, Source, ViewStateChangeEvent } from "react-map-gl";
 import { getBuildingsOrClusters } from "~/db/buildings";
 
 export const meta: MetaFunction = () => {
@@ -224,6 +230,27 @@ export default function Index() {
     };
   }, [data.features, type]);
 
+  useEffect(() => setTooltipProperties(undefined), [type]);
+
+  const [tooltipProperties, setTooltipProperties] = useState<
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Record<string, any> | undefined
+  >();
+  const [popupKey, setPopupKey] = useState(1);
+
+  const onClick = useCallback((e: MapMouseEvent) => {
+    const map = e.target;
+    const [feature] = map.queryRenderedFeatures(e.point);
+    if (
+      feature &&
+      !_.isNil(feature.properties?.latitude) &&
+      !_.isNil(feature.properties.longitude)
+    ) {
+      setTooltipProperties(feature.properties!);
+      setPopupKey((oldPopupKey) => oldPopupKey + 1);
+    }
+  }, []);
+
   return (
     <Map
       mapboxAccessToken="pk.eyJ1Ijoia2V2aW5maW5uIiwiYSI6ImNseXdlbzczdzA2bmUyanBtcnkzYzdsNHQifQ.nPKnplMfumUhL7z1ArhACw"
@@ -233,6 +260,7 @@ export default function Index() {
       onMove={onMove}
       onResize={onResize}
       onLoad={onResize}
+      onClick={onClick}
       mapStyle="mapbox://styles/mapbox/streets-v9"
     >
       {type === "buildings" ? (
@@ -289,6 +317,102 @@ export default function Index() {
             }}
           />
         </Source>
+      )}
+      {tooltipProperties && (
+        <Popup
+          longitude={tooltipProperties.longitude}
+          latitude={tooltipProperties.latitude}
+          onClose={() => setTooltipProperties(undefined)}
+          key={popupKey}
+        >
+          {type === "buildings" ? (
+            <div>
+              <h1 className="text-xl">{tooltipProperties.address}</h1>
+              <h2 className="text-lg">
+                {tooltipProperties.eligible ? "Eligible" : "Ineligible"} for
+                Good Cause Eviction
+              </h2>
+              <dl>
+                <dt className="mt-2">Units</dt>
+                <dd>{tooltipProperties.unitsres}</dd>
+                <dt className="mt-2">Rent Stabilized Units</dt>
+                <dd>{tooltipProperties.postHstaRsUnits}</dd>
+                <dt className="mt-2">Year Built</dt>
+                <dd>
+                  {tooltipProperties.coIssued
+                    ? new Date(tooltipProperties.coIssued).getFullYear()
+                    : "unknown"}
+                </dd>
+                <dt className="mt-2">Building Class</dt>
+                <dd>{tooltipProperties.bldgclass}</dd>
+                <dt className="mt-2">
+                  Estimated Units in Landlord&apos;s Portfolio
+                </dt>
+                <dd>
+                  {_.isNumber(tooltipProperties.wowPortfolioUnits)
+                    ? tooltipProperties.wowPortfolioUnits
+                    : "unknown"}
+                </dd>
+                <dt className="mt-2">
+                  Estimated Buildings in Landlord&apos;s Portfolio
+                </dt>
+                <dd>
+                  {_.isNumber(tooltipProperties.wowPortfolioBbls)
+                    ? tooltipProperties.wowPortfolioBbls
+                    : "unknown"}
+                </dd>
+              </dl>
+            </div>
+          ) : (
+            <div>
+              <h1 className="text-2xl">
+                {pluralize("Building", tooltipProperties.bblsCount, true)}
+              </h1>
+              <h2 className="text-lg">
+                {pluralize("unit", tooltipProperties.eligibleUnitsCount, true)}{" "}
+                eligible for Good Cause Eviction
+              </h2>
+              <dl>
+                <dt className="mt-2">Buildings</dt>
+                <dd>{tooltipProperties.bblsCount}</dd>
+                <dt className="mt-2">Units</dt>
+                <dd>{tooltipProperties.unitsres}</dd>
+                <dt className="mt-2">Rent Stabilized Units</dt>
+                <dd>{tooltipProperties.postHstaRsUnits}</dd>
+                {new Date(tooltipProperties.minCoIssued).getFullYear() ===
+                new Date(tooltipProperties.minCoIssued).getFullYear() ? (
+                  <>
+                    <dt className="mt-2">Year Built</dt>
+                    <dd>
+                      {tooltipProperties.minCoIssued
+                        ? new Date(tooltipProperties.minCoIssued)
+                            .getFullYear()
+                            .toString()
+                        : "unknown"}
+                    </dd>
+                  </>
+                ) : (
+                  <>
+                    <dt className="mt-2">Year Built Range</dt>
+                    <dd>
+                      {tooltipProperties.minCoIssued
+                        ? new Date(tooltipProperties.minCoIssued)
+                            .getFullYear()
+                            .toString()
+                        : "unknown"}{" "}
+                      -{" "}
+                      {tooltipProperties.maxCoIssued
+                        ? new Date(tooltipProperties.maxCoIssued)
+                            .getFullYear()
+                            .toString()
+                        : "unknown"}
+                    </dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          )}
+        </Popup>
       )}
     </Map>
   );
