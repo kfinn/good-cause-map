@@ -86,6 +86,7 @@ export async function loader({
   const eastWestAdjustment = (east - west) * 0.1;
 
   const buildingsFIlter = {
+    zoom,
     west: west - eastWestAdjustment,
     north: north + northSouthAdjustment,
     east: east + eastWestAdjustment,
@@ -108,7 +109,7 @@ export async function loader({
             ...building,
             eligible: building.eligible ? 1 : 0,
           },
-          geometry: building.geom,
+          geometry: building.geomJson,
         })),
       },
     };
@@ -120,7 +121,7 @@ export async function loader({
         features: _.map(buildingsOrClusters.clusters, (cluster) => ({
           type: "Feature",
           properties: cluster,
-          geometry: cluster.geom,
+          geometry: cluster.geomJson,
         })),
       },
     };
@@ -336,7 +337,7 @@ export default function Index() {
                 <dt className="mt-2">Units</dt>
                 <dd>{tooltipProperties.unitsres}</dd>
                 <dt className="mt-2">Rent Stabilized Units</dt>
-                <dd>{tooltipProperties.postHstaRsUnits}</dd>
+                <dd>{tooltipProperties.postHstpaRsUnits}</dd>
                 <dt className="mt-2">Year Built</dt>
                 <dd>
                   {tooltipProperties.coIssued
@@ -378,7 +379,7 @@ export default function Index() {
                 <dt className="mt-2">Units</dt>
                 <dd>{tooltipProperties.unitsres}</dd>
                 <dt className="mt-2">Rent Stabilized Units</dt>
-                <dd>{tooltipProperties.postHstaRsUnits}</dd>
+                <dd>{tooltipProperties.postHstpaRsUnits}</dd>
                 {new Date(tooltipProperties.minCoIssued).getFullYear() ===
                 new Date(tooltipProperties.minCoIssued).getFullYear() ? (
                   <>

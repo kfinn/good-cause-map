@@ -2,6 +2,7 @@ import { Sql } from "postgres";
 import connect from ".";
 
 interface BoundingBox {
+  zoom: number;
   west: number;
   north: number;
   east: number;
@@ -25,7 +26,13 @@ export async function getBuildingsOrClusters(
     maxLongitude,
   } = await getBuildingsStats(sql, boundingBox);
 
+  const clampedRoundedZoom = Math.max(
+    Math.min(Math.round(boundingBox.zoom), 16),
+    10
+  );
+
   const clampedBoundingBox = {
+    zoom: clampedRoundedZoom,
     west: Math.max(boundingBox.west, minLongitude),
     north: Math.min(boundingBox.north, maxLatitude),
     east: Math.min(boundingBox.east, maxLongitude),
@@ -92,12 +99,12 @@ async function getBuildings(
         ST_Y(geom)::double precision AS latitude,
         address,
         unitsres::integer,
-        post_hsta_rs_units::integer,
+        post_hstpa_rs_units::integer,
         co_issued::date,
         bldgclass,
         wow_portfolio_units::integer,
         wow_portfolio_bbls::integer,
-        ST_AsGeoJSON(geom)::json AS geom,
+        ST_AsGeoJSON(geom)::json AS geom_json,
         eligible
     FROM
         gce_eligibility
@@ -106,46 +113,16 @@ async function getBuildings(
   `;
 }
 
-const TARGET_CLUSTERS_COUNT = 20000;
-
 async function getBuildingClusters(
   sql: Sql,
   signal: AbortSignal,
-  {
-    west,
-    north,
-    east,
-    south,
-  }: {
-    west: number;
-    north: number;
-    east: number;
-    south: number;
-  }
+  { zoom, west, north, east, south }: BoundingBox
 ) {
-  const latitudeSpan = north - south;
-  const longitudeSpan = east - west;
-  const approximateArea = latitudeSpan * longitudeSpan;
-  const hexSize = Math.sqrt(approximateArea / TARGET_CLUSTERS_COUNT);
-
   const query = sql`
-    SELECT
-        COALESCE(SUM(unitsres), 0)::integer AS unitsres,
-        COALESCE(SUM(post_hsta_rs_units), 0)::integer AS post_hsta_rs_units,
-        ST_X(ST_Centroid(hexes.geom))::double precision AS longitude,
-        ST_Y(ST_Centroid(hexes.geom))::double precision AS latitude,
-        ST_AsGeoJSON(hexes.geom)::json as geom,
-        COUNT(gce_eligibility.*)::integer AS bbls_count,
-        MAX(co_issued)::date AS max_co_issued,
-        MIN(co_issued)::date AS min_co_issued,
-        SUM(CASE WHEN eligible THEN unitsres ELSE 0 END)::integer AS eligible_units_count,
-        SUM(CASE WHEN eligible THEN 1 ELSE 0 END)::integer AS eligible_bbls_count
-    FROM
-        ST_HexagonGrid(${hexSize}, ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326)) AS hexes
-        JOIN gce_eligibility ON hexes.geom ~ gce_eligibility.geom
-    GROUP BY
-        hexes.geom
-    HAVING count(gce_eligibility.*) > 0
+    SELECT *
+    FROM gce_eligibility_hexes
+    WHERE zoom_level = ${zoom}
+    AND ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) ~ geom
   `.execute();
 
   const abortListener = () => query.cancel();
