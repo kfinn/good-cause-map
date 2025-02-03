@@ -9,8 +9,6 @@ interface BoundingBox {
   south: number;
 }
 
-const MAX_BUILDINGS = 10000;
-
 export async function getBuildingsOrClusters(
   databaseUrl: string,
   signal: AbortSignal,
@@ -18,64 +16,23 @@ export async function getBuildingsOrClusters(
 ) {
   const sql = connect(databaseUrl);
 
-  const {
-    buildingsCount,
-    minLatitude,
-    minLongitude,
-    maxLatitude,
-    maxLongitude,
-  } = await getBuildingsStats(sql, boundingBox);
-
   const clampedRoundedZoom = Math.max(
     Math.min(Math.round(boundingBox.zoom), 16),
     10
   );
 
   const clampedBoundingBox = {
+    ...boundingBox,
     zoom: clampedRoundedZoom,
-    west: Math.max(boundingBox.west, minLongitude),
-    north: Math.min(boundingBox.north, maxLatitude),
-    east: Math.min(boundingBox.east, maxLongitude),
-    south: Math.max(boundingBox.south, minLatitude),
   };
 
   const result =
-    buildingsCount > MAX_BUILDINGS
+    Math.round(boundingBox.zoom) <= 16
       ? { clusters: await getBuildingClusters(sql, signal, clampedBoundingBox) }
       : { buildings: await getBuildings(sql, clampedBoundingBox) };
 
   sql.end();
   return result;
-}
-
-async function getBuildingsStats(
-  sql: Sql,
-  {
-    west,
-    north,
-    east,
-    south,
-  }: {
-    west: number;
-    north: number;
-    east: number;
-    south: number;
-  }
-) {
-  const results = await sql`
-      SELECT
-          COUNT(*) as buildings_count,
-          MIN(ST_Y(geom)) as min_latitude,
-          MAX(ST_Y(geom)) as max_latitude,
-          MIN(ST_X(geom)) as min_longitude,
-          MAX(ST_X(geom)) as max_longitude
-      FROM
-          gce_eligibility
-      WHERE
-          ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) ~ geom
-  `;
-
-  return results[0]!;
 }
 
 async function getBuildings(

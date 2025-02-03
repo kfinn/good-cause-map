@@ -4,12 +4,7 @@ import { useLoaderData, useSearchParams } from "@remix-run/react";
 import _ from "lodash";
 import { MapEvent, MapMouseEvent } from "mapbox-gl";
 import pluralize from "pluralize";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layer, Map, Popup, Source, ViewStateChangeEvent } from "react-map-gl";
 import { getBuildingsOrClusters } from "~/db/buildings";
 
@@ -175,6 +170,22 @@ export default function Index() {
     setLongitude(longitudeSearchParam);
   }, [longitudeSearchParam]);
 
+  const debouncedUpdateUrlSearchParams = useMemo(
+    () =>
+      _.debounce(
+        (
+          urlSearchParams: Record<
+            "zoom" | "latitude" | "longitude" | "mapWidth" | "mapHeight",
+            string
+          >
+        ) => {
+          setUrlSearchParams(urlSearchParams);
+        },
+        200
+      ),
+    [setUrlSearchParams]
+  );
+
   useEffect(() => {
     if (
       Math.abs(zoom - zoomSearchParam) < 0.25 &&
@@ -184,18 +195,15 @@ export default function Index() {
       return;
     }
 
-    const timeout = setTimeout(() => {
-      setUrlSearchParams({
-        zoom: zoom.toString(),
-        latitude: latitude.toString(),
-        longitude: longitude.toString(),
-        mapWidth: mapWidth.toString(),
-        mapHeight: mapHeight.toString(),
-      });
-    }, 200);
-
-    return () => clearTimeout(timeout);
+    debouncedUpdateUrlSearchParams({
+      zoom: zoom.toString(),
+      latitude: latitude.toString(),
+      longitude: longitude.toString(),
+      mapWidth: mapWidth.toString(),
+      mapHeight: mapHeight.toString(),
+    });
   }, [
+    debouncedUpdateUrlSearchParams,
     latitude,
     latitudeSearchParam,
     longitude,

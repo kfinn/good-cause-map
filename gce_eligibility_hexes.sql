@@ -1,4 +1,4 @@
-CREATE MATERIALIZED VIEW gce_eligibility_hexes AS (
+CREATE MATERIALIZED VIEW wow.gce_eligibility_hexes AS (
     WITH map_bounds AS (
         SELECT
             MIN(ST_Y(geom)) as min_latitude,
@@ -283,10 +283,10 @@ CREATE MATERIALIZED VIEW gce_eligibility_hexes AS (
         zoom_level_hexes
         JOIN gce_eligibility ON zoom_level_hexes.geom ~ gce_eligibility.geom
     GROUP BY
-        zoom_level_hexes.zoom_level, zoom_level_hexes.geom
+        zoom_level_hexes.zoom_level,
+        zoom_level_hexes.geom
     HAVING
         count(gce_eligibility.*) > 0
 );
 
--- can we index both on zoom level and geometry? does it matter if we index on zoom level, since we have so few of them?
 CREATE INDEX index_gce_eligibility_hexes_on_geom ON gce_eligibility_hexes USING GIST(geom);
