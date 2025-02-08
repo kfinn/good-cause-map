@@ -170,9 +170,9 @@ export default function Index() {
     setLongitude(longitudeSearchParam);
   }, [longitudeSearchParam]);
 
-  const debouncedUpdateUrlSearchParams = useMemo(
+  const throttledUpdateUrlSearchParams = useMemo(
     () =>
-      _.debounce(
+      _.throttle(
         (
           urlSearchParams: Record<
             "zoom" | "latitude" | "longitude" | "mapWidth" | "mapHeight",
@@ -195,7 +195,7 @@ export default function Index() {
       return;
     }
 
-    debouncedUpdateUrlSearchParams({
+    throttledUpdateUrlSearchParams({
       zoom: zoom.toString(),
       latitude: latitude.toString(),
       longitude: longitude.toString(),
@@ -203,7 +203,7 @@ export default function Index() {
       mapHeight: mapHeight.toString(),
     });
   }, [
-    debouncedUpdateUrlSearchParams,
+    throttledUpdateUrlSearchParams,
     latitude,
     latitudeSearchParam,
     longitude,
