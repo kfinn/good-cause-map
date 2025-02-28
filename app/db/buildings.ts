@@ -1,13 +1,6 @@
 import { Sql } from "postgres";
+import { BoundingBox } from "~/helpers";
 import connect from ".";
-
-interface BoundingBox {
-  zoom: number;
-  west: number;
-  north: number;
-  east: number;
-  south: number;
-}
 
 export async function getBuildingsOrClusters(
   databaseUrl: string,
@@ -29,7 +22,7 @@ export async function getBuildingsOrClusters(
   const result =
     Math.round(boundingBox.zoom) <= 16
       ? { clusters: await getBuildingClusters(sql, signal, clampedBoundingBox) }
-      : { buildings: await getBuildings(sql, clampedBoundingBox) };
+      : { buildings: await getBuildings(sql, signal, clampedBoundingBox) };
 
   sql.end();
   return result;
@@ -37,6 +30,7 @@ export async function getBuildingsOrClusters(
 
 async function getBuildings(
   sql: Sql,
+  signal: AbortSignal,
   {
     west,
     north,
@@ -49,7 +43,7 @@ async function getBuildings(
     south: number;
   }
 ) {
-  return await sql`
+  const query = sql`
     SELECT
         bbl,
         ST_X(geom)::double precision AS longitude,
@@ -67,7 +61,13 @@ async function getBuildings(
         gce_eligibility
     WHERE
         ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) ~ geom
-  `;
+  `.execute();
+
+  const abortListener = () => query.cancel();
+  signal.addEventListener("abort", abortListener);
+  const result = await query;
+  signal.removeEventListener("abort", abortListener);
+  return result;
 }
 
 async function getBuildingClusters(
