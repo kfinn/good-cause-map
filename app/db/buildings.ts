@@ -24,7 +24,7 @@ export async function getBuildingsOrClusters(
       ? { clusters: await getBuildingClusters(sql, signal, clampedBoundingBox) }
       : { buildings: await getBuildings(sql, signal, clampedBoundingBox) };
 
-  sql.end();
+  await sql.end();
   return result;
 }
 

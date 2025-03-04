@@ -11,6 +11,8 @@ export async function getAssemblyDistricts(
     SELECT
       assemdist,
       geom,
+      longitude,
+      latitude,
       unitsres,
       post_hstpa_rs_units,
       bbls_count,
@@ -26,5 +28,6 @@ export async function getAssemblyDistricts(
   signal.addEventListener("abort", abortListener);
   const result = await query;
   signal.removeEventListener("abort", abortListener);
+  await sql.end();
   return result;
 }

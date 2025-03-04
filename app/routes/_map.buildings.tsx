@@ -1,9 +1,11 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { useLoaderData } from "@remix-run/react";
 import _ from "lodash";
-import pluralize from "pluralize";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layer, MapMouseEvent, Popup, Source } from "react-map-gl";
+import RegionSummaryPopup, {
+  RegionStats,
+} from "~/components/region-summary-popup";
 import { getBuildingsOrClusters } from "~/db/buildings";
 import { searchParamsToBoundingBox } from "~/helpers";
 import { useOnMapClick } from "./_map";
@@ -22,6 +24,19 @@ interface ClustersLoaderData {
     type: "FeatureCollection";
     features: { properties: Record<string, unknown> }[];
   };
+}
+
+interface BuildingStats {
+  longitude: number;
+  latitude: number;
+  address: string;
+  eligible: boolean;
+  unitsres: number;
+  postHstpaRsUnits: number;
+  coIssued: string;
+  bldgclass: string;
+  wowPortfolioUnits: number;
+  wowPortfolioBbls: number;
 }
 
 export async function loader({
@@ -90,26 +105,40 @@ export default function Buildings() {
     };
   }, [data.features, type]);
 
-  useEffect(() => setTooltipProperties(undefined), [type]);
+  useEffect(() => {
+    setPopupBuildingStats(undefined);
+    setPopupRegionStats(undefined);
+  }, [type]);
 
-  const [tooltipProperties, setTooltipProperties] = useState<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Record<string, any> | undefined
+  const [popupBuildingStats, setPopupBuildingStats] = useState<
+    BuildingStats | undefined
+  >();
+  const [popupRegionStats, setPopupRegionStats] = useState<
+    RegionStats | undefined
   >();
   const [popupKey, setPopupKey] = useState(1);
 
-  const onMapClick = useCallback((e: MapMouseEvent) => {
-    const map = e.target;
-    const [feature] = map.queryRenderedFeatures(e.point);
-    if (
-      feature &&
-      !_.isNil(feature.properties?.latitude) &&
-      !_.isNil(feature.properties.longitude)
-    ) {
-      setTooltipProperties(feature.properties!);
-      setPopupKey((oldPopupKey) => oldPopupKey + 1);
-    }
-  }, []);
+  const onMapClick = useCallback(
+    (e: MapMouseEvent) => {
+      const map = e.target;
+      const [feature] = map.queryRenderedFeatures(e.point);
+      if (
+        feature &&
+        !_.isNil(feature.properties?.latitude) &&
+        !_.isNil(feature.properties.longitude)
+      ) {
+        if (type === "buildings") {
+          setPopupBuildingStats(feature.properties as unknown as BuildingStats);
+          setPopupRegionStats(undefined);
+        } else {
+          setPopupBuildingStats(undefined);
+          setPopupRegionStats(feature.properties as unknown as RegionStats);
+        }
+        setPopupKey((oldPopupKey) => oldPopupKey + 1);
+      }
+    },
+    [type]
+  );
   useOnMapClick(onMapClick);
 
   return (
@@ -169,101 +198,58 @@ export default function Buildings() {
           />
         </Source>
       )}
-      {tooltipProperties && (
+      {popupBuildingStats && (
         <Popup
-          longitude={tooltipProperties.longitude}
-          latitude={tooltipProperties.latitude}
-          onClose={() => setTooltipProperties(undefined)}
+          longitude={popupBuildingStats.longitude}
+          latitude={popupBuildingStats.latitude}
+          onClose={() => setPopupBuildingStats(undefined)}
           key={popupKey}
         >
-          {type === "buildings" ? (
-            <div>
-              <h1 className="text-xl">{tooltipProperties.address}</h1>
-              <h2 className="text-lg">
-                {tooltipProperties.eligible ? "Eligible" : "Ineligible"} for
-                Good Cause Eviction
-              </h2>
-              <dl>
-                <dt className="mt-2">Units</dt>
-                <dd>{tooltipProperties.unitsres}</dd>
-                <dt className="mt-2">Rent Stabilized Units</dt>
-                <dd>{tooltipProperties.postHstpaRsUnits}</dd>
-                <dt className="mt-2">Year Built</dt>
-                <dd>
-                  {tooltipProperties.coIssued
-                    ? new Date(tooltipProperties.coIssued).getFullYear()
-                    : "unknown"}
-                </dd>
-                <dt className="mt-2">Building Class</dt>
-                <dd>{tooltipProperties.bldgclass}</dd>
-                <dt className="mt-2">
-                  Estimated Units in Landlord&apos;s Portfolio
-                </dt>
-                <dd>
-                  {_.isNumber(tooltipProperties.wowPortfolioUnits)
-                    ? tooltipProperties.wowPortfolioUnits
-                    : "unknown"}
-                </dd>
-                <dt className="mt-2">
-                  Estimated Buildings in Landlord&apos;s Portfolio
-                </dt>
-                <dd>
-                  {_.isNumber(tooltipProperties.wowPortfolioBbls)
-                    ? tooltipProperties.wowPortfolioBbls
-                    : "unknown"}
-                </dd>
-              </dl>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-2xl">
-                {pluralize("Building", tooltipProperties.bblsCount, true)}
-              </h1>
-              <h2 className="text-lg">
-                {pluralize("unit", tooltipProperties.eligibleUnitsCount, true)}{" "}
-                eligible for Good Cause Eviction
-              </h2>
-              <dl>
-                <dt className="mt-2">Buildings</dt>
-                <dd>{tooltipProperties.bblsCount}</dd>
-                <dt className="mt-2">Units</dt>
-                <dd>{tooltipProperties.unitsres}</dd>
-                <dt className="mt-2">Rent Stabilized Units</dt>
-                <dd>{tooltipProperties.postHstpaRsUnits}</dd>
-                {new Date(tooltipProperties.minCoIssued).getFullYear() ===
-                new Date(tooltipProperties.minCoIssued).getFullYear() ? (
-                  <>
-                    <dt className="mt-2">Year Built</dt>
-                    <dd>
-                      {tooltipProperties.minCoIssued
-                        ? new Date(tooltipProperties.minCoIssued)
-                            .getFullYear()
-                            .toString()
-                        : "unknown"}
-                    </dd>
-                  </>
-                ) : (
-                  <>
-                    <dt className="mt-2">Year Built Range</dt>
-                    <dd>
-                      {tooltipProperties.minCoIssued
-                        ? new Date(tooltipProperties.minCoIssued)
-                            .getFullYear()
-                            .toString()
-                        : "unknown"}{" "}
-                      -{" "}
-                      {tooltipProperties.maxCoIssued
-                        ? new Date(tooltipProperties.maxCoIssued)
-                            .getFullYear()
-                            .toString()
-                        : "unknown"}
-                    </dd>
-                  </>
-                )}
-              </dl>
-            </div>
-          )}
+          <div>
+            <h1 className="text-xl">{popupBuildingStats.address}</h1>
+            <h2 className="text-lg">
+              {popupBuildingStats.eligible ? "Eligible" : "Ineligible"} for Good
+              Cause Eviction
+            </h2>
+            <dl>
+              <dt className="mt-2">Units</dt>
+              <dd>{popupBuildingStats.unitsres}</dd>
+              <dt className="mt-2">Rent Stabilized Units</dt>
+              <dd>{popupBuildingStats.postHstpaRsUnits}</dd>
+              <dt className="mt-2">Year Built</dt>
+              <dd>
+                {popupBuildingStats.coIssued
+                  ? new Date(popupBuildingStats.coIssued).getFullYear()
+                  : "unknown"}
+              </dd>
+              <dt className="mt-2">Building Class</dt>
+              <dd>{popupBuildingStats.bldgclass}</dd>
+              <dt className="mt-2">
+                Estimated Units in Landlord&apos;s Portfolio
+              </dt>
+              <dd>
+                {_.isNumber(popupBuildingStats.wowPortfolioUnits)
+                  ? popupBuildingStats.wowPortfolioUnits
+                  : "unknown"}
+              </dd>
+              <dt className="mt-2">
+                Estimated Buildings in Landlord&apos;s Portfolio
+              </dt>
+              <dd>
+                {_.isNumber(popupBuildingStats.wowPortfolioBbls)
+                  ? popupBuildingStats.wowPortfolioBbls
+                  : "unknown"}
+              </dd>
+            </dl>
+          </div>
         </Popup>
+      )}
+      {popupRegionStats && (
+        <RegionSummaryPopup
+          regionStats={popupRegionStats}
+          onClose={() => setPopupRegionStats(undefined)}
+          key={popupKey}
+        />
       )}
     </>
   );
