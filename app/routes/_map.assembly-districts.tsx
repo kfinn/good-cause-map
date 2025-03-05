@@ -1,12 +1,13 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
-import { useLoaderData } from "@remix-run/react";
+import { Link, useLoaderData } from "@remix-run/react";
 import _ from "lodash";
 import { useCallback, useMemo, useState } from "react";
 import { Layer, MapMouseEvent, Source } from "react-map-gl";
-import RegionSummaryPopup, {
-  RegionStats,
-} from "~/components/region-summary-popup";
-import { getAssemblyDistricts } from "~/db/assembly-districts";
+import RegionSummaryPopup from "~/components/region-summary-popup";
+import {
+  AssemblyDistrictStats,
+  getAssemblyDistricts,
+} from "~/db/assembly-districts";
 import { searchParamsToBoundingBox } from "~/helpers";
 import { useOnMapClick } from "./_map";
 
@@ -62,7 +63,7 @@ export default function AssemblyDistricts() {
   );
 
   const [popupRegionStats, setPopupRegionStats] = useState<
-    RegionStats | undefined
+    AssemblyDistrictStats | undefined
   >();
   const [popupKey, setPopupKey] = useState(1);
 
@@ -74,7 +75,7 @@ export default function AssemblyDistricts() {
       !_.isNil(feature.properties?.latitude) &&
       !_.isNil(feature.properties.longitude)
     ) {
-      setPopupRegionStats(feature.properties as RegionStats);
+      setPopupRegionStats(feature.properties as AssemblyDistrictStats);
       setPopupKey((oldPopupKey) => oldPopupKey + 1);
     }
   }, []);
@@ -126,7 +127,15 @@ export default function AssemblyDistricts() {
           regionStats={popupRegionStats}
           onClose={() => setPopupRegionStats(undefined)}
           key={popupKey}
-        />
+        >
+          <Link
+            to={`/assembly-districts/${popupRegionStats.assemdist}/buildings.csv`}
+            download
+            reloadDocument
+          >
+            Download Buildings CSV
+          </Link>
+        </RegionSummaryPopup>
       )}
     </>
   );

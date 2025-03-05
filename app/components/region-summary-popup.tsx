@@ -1,4 +1,5 @@
 import pluralize from "pluralize";
+import { PropsWithChildren } from "react";
 import { Popup } from "react-map-gl";
 
 export interface RegionStats {
@@ -12,12 +13,16 @@ export interface RegionStats {
   maxCoIssued: string;
 }
 
-interface Props {
+type Props = PropsWithChildren<{
   regionStats: RegionStats;
   onClose: () => void;
-}
+}>;
 
-export default function RegionSummaryPopup({ regionStats, onClose }: Props) {
+export default function RegionSummaryPopup({
+  regionStats,
+  onClose,
+  children,
+}: Props) {
   return (
     <Popup
       latitude={regionStats.latitude}
@@ -64,6 +69,7 @@ export default function RegionSummaryPopup({ regionStats, onClose }: Props) {
             </>
           )}
         </dl>
+        {children}
       </div>
     </Popup>
   );
