@@ -1,8 +1,9 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
-import { Link, useLoaderData } from "@remix-run/react";
+import { useLoaderData } from "@remix-run/react";
 import _ from "lodash";
 import { useCallback, useMemo, useState } from "react";
 import { Layer, MapMouseEvent, Source } from "react-map-gl";
+import Link from "~/components/link";
 import RegionSummaryPopup from "~/components/region-summary-popup";
 import {
   AssemblyDistrictStats,

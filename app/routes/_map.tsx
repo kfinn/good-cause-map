@@ -1,5 +1,5 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
-import { Link, Outlet, useLoaderData, useSearchParams } from "@remix-run/react";
+import { Outlet, useLoaderData, useSearchParams } from "@remix-run/react";
 import _ from "lodash";
 import { MapEvent, MapMouseEvent } from "mapbox-gl";
 import {
@@ -13,6 +13,7 @@ import {
   useState,
 } from "react";
 import { Map, ViewStateChangeEvent } from "react-map-gl";
+import Link from "~/components/link";
 import {
   DEFAULT_MAP_HEIGHT,
   DEFAULT_MAP_WIDTH,
