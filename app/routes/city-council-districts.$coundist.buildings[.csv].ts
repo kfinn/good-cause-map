@@ -17,7 +17,7 @@ export async function loader({
     headers: {
       "Content-Type": "text/csv",
       "Content-Disposition":
-        'attachment; filename="good-cause-eviction-buildings.csv"',
+        'attachment; filename="city-council-district-good-cause-eviction-buildings.csv"',
     },
   });
 }

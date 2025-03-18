@@ -152,6 +152,11 @@ export default function MapRoute() {
                 City Council Districts
               </Link>
             </li>
+            <li>
+              <Link to={`/state-senate-districts?${searchParams.toString()}`}>
+                State Senate Districts
+              </Link>
+            </li>
           </ul>
         </div>
       </Map>

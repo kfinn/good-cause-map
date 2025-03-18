@@ -1,14 +1,14 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
 import _ from "lodash";
 import { buildingsToCsvStream } from "~/buildings-csv";
-import { getAssemblyDistrictBuildings } from "~/db/assembly-districts";
+import { getStateSenateDistrictBuildings } from "~/db/state-senate-districts";
 
 export async function loader({
   params,
   request,
   context,
 }: LoaderFunctionArgs): Promise<Response> {
-  const buildings = getAssemblyDistrictBuildings(
+  const buildings = getStateSenateDistrictBuildings(
     context.cloudflare.env.DATABASE_URL,
     request.signal,
     _.parseInt(params.assemdist!)
@@ -17,7 +17,7 @@ export async function loader({
     headers: {
       "Content-Type": "text/csv",
       "Content-Disposition":
-        'attachment; filename="assembly-district-good-cause-eviction-buildings.csv"',
+        'attachment; filename="state-senate-district-good-cause-eviction-buildings.csv"',
     },
   });
 }
