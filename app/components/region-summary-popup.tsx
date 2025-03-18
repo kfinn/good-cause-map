@@ -1,6 +1,7 @@
+import { To } from "@remix-run/router";
 import pluralize from "pluralize";
-import { PropsWithChildren } from "react";
 import { Popup } from "react-map-gl";
+import Link from "./link";
 
 export interface RegionStats {
   latitude: number;
@@ -13,15 +14,16 @@ export interface RegionStats {
   maxCoIssued: string;
 }
 
-type Props = PropsWithChildren<{
+interface Props {
   regionStats: RegionStats;
+  downloadLinkTo?: To;
   onClose: () => void;
-}>;
+}
 
 export default function RegionSummaryPopup({
   regionStats,
   onClose,
-  children,
+  downloadLinkTo,
 }: Props) {
   return (
     <Popup
@@ -69,7 +71,11 @@ export default function RegionSummaryPopup({
             </>
           )}
         </dl>
-        {children}
+        {downloadLinkTo && (
+          <Link to={downloadLinkTo} download reloadDocument>
+            Download Buildings CSV
+          </Link>
+        )}
       </div>
     </Popup>
   );

@@ -71,16 +71,6 @@ export default function MapRoute() {
     setMapHeight(offsetHeight);
   }, []);
 
-  useEffect(() => {
-    setZoom(zoomSearchParam);
-  }, [zoomSearchParam]);
-  useEffect(() => {
-    setLatitude(latitudeSearchParam);
-  }, [latitudeSearchParam]);
-  useEffect(() => {
-    setLongitude(longitudeSearchParam);
-  }, [longitudeSearchParam]);
-
   const throttledUpdateUrlSearchParams = useMemo(
     () =>
       _.throttle((newSearchParams: Record<string, string>) => {

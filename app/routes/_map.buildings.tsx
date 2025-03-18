@@ -6,7 +6,7 @@ import { Layer, MapMouseEvent, Popup, Source } from "react-map-gl";
 import RegionSummaryPopup, {
   RegionStats,
 } from "~/components/region-summary-popup";
-import { getBuildingsOrClusters } from "~/db/buildings";
+import { getBuildingsOrHexes } from "~/db/buildings";
 import { searchParamsToBoundingBox } from "~/helpers";
 import { useOnMapClick } from "./_map";
 
@@ -19,12 +19,18 @@ interface BuildingsLoaderData {
 }
 
 interface ClustersLoaderData {
-  type: "clusters";
+  type: "hexes";
   data: {
     type: "FeatureCollection";
     features: { properties: Record<string, unknown> }[];
   };
 }
+
+type HexStats = RegionStats & {
+  zoomLevel: number;
+  longitude: number;
+  latitude: number;
+};
 
 interface BuildingStats {
   longitude: number;
@@ -45,18 +51,18 @@ export async function loader({
 }: LoaderFunctionArgs): Promise<BuildingsLoaderData | ClustersLoaderData> {
   const { searchParams } = new URL(request.url);
   const boundingBox = searchParamsToBoundingBox(searchParams);
-  const buildingsOrClusters = await getBuildingsOrClusters(
+  const buildingsOrHexes = await getBuildingsOrHexes(
     context.cloudflare.env.DATABASE_URL,
     request.signal,
     boundingBox
   );
 
-  if ("buildings" in buildingsOrClusters) {
+  if ("buildings" in buildingsOrHexes) {
     return {
       type: "buildings",
       data: {
         type: "FeatureCollection",
-        features: _.map(buildingsOrClusters.buildings, (building) => ({
+        features: _.map(buildingsOrHexes.buildings, (building) => ({
           type: "Feature",
           properties: {
             ...building,
@@ -68,13 +74,13 @@ export async function loader({
     };
   } else {
     return {
-      type: "clusters",
+      type: "hexes",
       data: {
         type: "FeatureCollection",
-        features: _.map(buildingsOrClusters.clusters, (cluster) => ({
+        features: _.map(buildingsOrHexes.hexes, (hex) => ({
           type: "Feature",
-          properties: cluster,
-          geometry: cluster.geomJson,
+          properties: hex,
+          geometry: hex.geomJson,
         })),
       },
     };
@@ -84,7 +90,7 @@ export async function loader({
 export default function Buildings() {
   const { type, data } = useLoaderData<typeof loader>();
   const { maxUnitsres, maxEligibleProportion } = useMemo(() => {
-    if (type !== "clusters") {
+    if (type !== "hexes") {
       return {
         maxUnitsres: 0,
         maxEligibleProportion: 0,
@@ -114,7 +120,7 @@ export default function Buildings() {
     BuildingStats | undefined
   >();
   const [popupRegionStats, setPopupRegionStats] = useState<
-    RegionStats | undefined
+    HexStats | undefined
   >();
   const [popupKey, setPopupKey] = useState(1);
 
@@ -132,7 +138,7 @@ export default function Buildings() {
           setPopupRegionStats(undefined);
         } else {
           setPopupBuildingStats(undefined);
-          setPopupRegionStats(feature.properties as unknown as RegionStats);
+          setPopupRegionStats(feature.properties as unknown as HexStats);
         }
         setPopupKey((oldPopupKey) => oldPopupKey + 1);
       }
@@ -164,10 +170,10 @@ export default function Buildings() {
           />
         </Source>
       ) : (
-        <Source id="clusters" type="geojson" data={data} key="clusters">
+        <Source id="hexes" type="geojson" data={data} key="hexes">
           <Layer
-            id="clusters-heatmap"
-            source="clusters"
+            id="hexes-heatmap"
+            source="hexes"
             type="fill"
             paint={{
               "fill-opacity": [
@@ -249,6 +255,7 @@ export default function Buildings() {
           regionStats={popupRegionStats}
           onClose={() => setPopupRegionStats(undefined)}
           key={popupKey}
+          downloadLinkTo={`/hexes/${popupRegionStats.zoomLevel}/${popupRegionStats.longitude}/${popupRegionStats.latitude}/buildings.csv`}
         />
       )}
     </>

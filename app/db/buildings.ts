@@ -1,8 +1,9 @@
 import { Sql } from "postgres";
 import { BoundingBox } from "~/helpers";
 import { executeWithAbortSignal, withConnection } from ".";
+import { getHexes } from "./hexes";
 
-export async function getBuildingsOrClusters(
+export async function getBuildingsOrHexes(
   databaseUrl: string,
   signal: AbortSignal,
   boundingBox: BoundingBox
@@ -20,7 +21,7 @@ export async function getBuildingsOrClusters(
   return await withConnection(databaseUrl, async (sql) => {
     if (Math.round(boundingBox.zoom) <= 16) {
       return {
-        clusters: await getBuildingClusters(sql, signal, clampedBoundingBox),
+        hexes: await getHexes(sql, signal, clampedBoundingBox),
       };
     } else {
       return { buildings: await getBuildings(sql, signal, clampedBoundingBox) };
@@ -62,22 +63,6 @@ async function getBuildings(
           gce_eligibility
       WHERE
           ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) ~ geom
-    `,
-    signal
-  );
-}
-
-async function getBuildingClusters(
-  sql: Sql,
-  signal: AbortSignal,
-  { zoom, west, north, east, south }: BoundingBox
-) {
-  return await executeWithAbortSignal(
-    sql`
-      SELECT *
-      FROM gce_eligibility_hexes
-      WHERE zoom_level = ${zoom}
-      AND ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) ~ geom
     `,
     signal
   );

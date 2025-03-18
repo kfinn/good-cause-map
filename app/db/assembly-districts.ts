@@ -49,7 +49,7 @@ export async function* getAssemblyDistrictBuildings(
   const sql = connect(databaseUrl);
   try {
     const cursor = sql`
-      SELECT * FROM gce_eligibility
+      SELECT gce_eligibility.* FROM gce_eligibility
       JOIN pluto_latest_districts ON pluto_latest_districts.bbl = gce_eligibility.bbl
       WHERE pluto_latest_districts.assem_dist = ${assemdist}::text
   `.cursor();

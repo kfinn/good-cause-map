@@ -3,7 +3,6 @@ import { useLoaderData } from "@remix-run/react";
 import _ from "lodash";
 import { useCallback, useMemo, useState } from "react";
 import { Layer, MapMouseEvent, Source } from "react-map-gl";
-import Link from "~/components/link";
 import RegionSummaryPopup from "~/components/region-summary-popup";
 import {
   AssemblyDistrictStats,
@@ -128,15 +127,8 @@ export default function AssemblyDistricts() {
           regionStats={popupRegionStats}
           onClose={() => setPopupRegionStats(undefined)}
           key={popupKey}
-        >
-          <Link
-            to={`/assembly-districts/${popupRegionStats.assemdist}/buildings.csv`}
-            download
-            reloadDocument
-          >
-            Download Buildings CSV
-          </Link>
-        </RegionSummaryPopup>
+          downloadLinkTo={`/assembly-districts/${popupRegionStats.assemdist}/buildings.csv`}
+        />
       )}
     </>
   );

@@ -1,7 +1,5 @@
-import { LoaderFunctionArgs } from "@remix-run/cloudflare";
 import _ from "lodash";
 import postgres from "postgres";
-import { getAssemblyDistrictBuildings } from "~/db/assembly-districts";
 
 const TEXT_ENCODER = new TextEncoder();
 
@@ -47,40 +45,33 @@ async function* buildingsToCsv(
       building.address,
       building.borough,
       building.zipcode,
-      building.unitsres?.toString() ?? '',
-      building.yearbuilt?.toString() ?? '',
+      building.unitsres?.toString() ?? "",
+      building.yearbuilt?.toString() ?? "",
       building.ownername,
       building.bldgclass,
       building.coBin,
       building.coIssued,
       building.subsidyName,
-      building.active421a?.toString() ?? '',
-      building.activeJ51?.toString() ?? '',
-      building.postHstpaRsUnits?.toString() ?? '',
-      building.wowPortfolioUnits?.toString() ?? '',
-      building.wowPortfolioBbls?.toString() ?? '',
-      building.eligibleBldgclass?.toString() ?? '',
-      building.eligibleCo?.toString() ?? '',
-      building.eligibleRentStab?.toString() ?? '',
-      building.eligibleSubsidy?.toString() ?? '',
-      building.eligiblePortfolioSize?.toString() ?? '',
-      building.eligible?.toString() ?? '',
+      building.active421a?.toString() ?? "",
+      building.activeJ51?.toString() ?? "",
+      building.postHstpaRsUnits?.toString() ?? "",
+      building.wowPortfolioUnits?.toString() ?? "",
+      building.wowPortfolioBbls?.toString() ?? "",
+      building.eligibleBldgclass?.toString() ?? "",
+      building.eligibleCo?.toString() ?? "",
+      building.eligibleRentStab?.toString() ?? "",
+      building.eligibleSubsidy?.toString() ?? "",
+      building.eligiblePortfolioSize?.toString() ?? "",
+      building.eligible?.toString() ?? "",
     ]);
   }
 }
 
-export async function loader({
-  params,
-  request,
-  context,
-}: LoaderFunctionArgs): Promise<Response> {
-  const buildings = getAssemblyDistrictBuildings(
-    context.cloudflare.env.DATABASE_URL,
-    request.signal,
-    _.parseInt(params.assemdist!)
-  );
+export function buildingsToCsvStream(
+  buildings: AsyncGenerator<postgres.Row, void, unknown>
+): ReadableStream {
   const buildingsCsvRows = buildingsToCsv(buildings);
-  const buildingsCsvStream = new ReadableStream({
+  return new ReadableStream({
     async pull(controller) {
       const next = await buildingsCsvRows.next();
       if (next.done) {
@@ -91,13 +82,6 @@ export async function loader({
     },
     cancel(reason) {
       buildingsCsvRows.throw(reason);
-    },
-  });
-  return new Response(buildingsCsvStream, {
-    headers: {
-      "Content-Type": "text/csv",
-      "Content-Disposition":
-        'attachment; filename="good-cause-eviction-buildings.csv"',
     },
   });
 }
