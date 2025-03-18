@@ -73,9 +73,13 @@ export default function MapRoute() {
 
   const throttledUpdateUrlSearchParams = useMemo(
     () =>
-      _.throttle((newSearchParams: Record<string, string>) => {
-        setSearchParams(newSearchParams);
-      }, 200),
+      _.throttle(
+        (newSearchParams: Record<string, string>) => {
+          setSearchParams(newSearchParams);
+        },
+        200,
+        { leading: true }
+      ),
     [setSearchParams]
   );
 
@@ -141,6 +145,11 @@ export default function MapRoute() {
             <li>
               <Link to={`/assembly-districts?${searchParams.toString()}`}>
                 Assembly Districts
+              </Link>
+            </li>
+            <li>
+              <Link to={`/city-council-districts?${searchParams.toString()}`}>
+                City Council Districts
               </Link>
             </li>
           </ul>

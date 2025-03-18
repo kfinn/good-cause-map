@@ -1,11 +1,12 @@
 import { LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { useLoaderData } from "@remix-run/react";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Layer, MapMouseEvent, Popup, Source } from "react-map-gl";
 import RegionSummaryPopup, {
   RegionStats,
 } from "~/components/region-summary-popup";
+import Regions from "~/components/regions";
 import { getBuildingsOrHexes } from "~/db/buildings";
 import { searchParamsToBoundingBox } from "~/helpers";
 import { useOnMapClick } from "./_map";
@@ -20,10 +21,7 @@ interface BuildingsLoaderData {
 
 interface ClustersLoaderData {
   type: "hexes";
-  data: {
-    type: "FeatureCollection";
-    features: { properties: Record<string, unknown> }[];
-  };
+  data: GeoJSON.FeatureCollection<GeoJSON.Geometry, RegionStats>;
 }
 
 type HexStats = RegionStats & {
@@ -89,27 +87,6 @@ export async function loader({
 
 export default function Buildings() {
   const { type, data } = useLoaderData<typeof loader>();
-  const { maxUnitsres, maxEligibleProportion } = useMemo(() => {
-    if (type !== "hexes") {
-      return {
-        maxUnitsres: 0,
-        maxEligibleProportion: 0,
-      };
-    }
-
-    return {
-      maxUnitsres: _.max(
-        _.map(data.features, ({ properties: { unitsres } }) => unitsres)
-      ),
-      maxEligibleProportion: _.max(
-        _.map(
-          data.features,
-          ({ properties: { unitsres, eligibleUnitsCount } }) =>
-            eligibleUnitsCount! / _.max([1, unitsres])!
-        )
-      ),
-    };
-  }, [data.features, type]);
 
   useEffect(() => {
     setPopupBuildingStats(undefined);
@@ -170,39 +147,7 @@ export default function Buildings() {
           />
         </Source>
       ) : (
-        <Source id="hexes" type="geojson" data={data} key="hexes">
-          <Layer
-            id="hexes-heatmap"
-            source="hexes"
-            type="fill"
-            paint={{
-              "fill-opacity": [
-                "interpolate",
-                ["linear"],
-                ["get", "unitsres"],
-                0,
-                0,
-                1,
-                0.25,
-                maxUnitsres,
-                0.6,
-              ],
-              "fill-color": [
-                "interpolate",
-                ["linear"],
-                [
-                  "/",
-                  ["get", "eligibleUnitsCount"],
-                  ["max", ["get", "unitsres"], 1],
-                ],
-                0,
-                "white",
-                maxEligibleProportion,
-                "purple",
-              ],
-            }}
-          />
-        </Source>
+        <Regions regions={data} />
       )}
       {popupBuildingStats && (
         <Popup

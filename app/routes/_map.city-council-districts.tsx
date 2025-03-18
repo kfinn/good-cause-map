@@ -6,9 +6,9 @@ import { MapMouseEvent } from "react-map-gl";
 import RegionSummaryPopup from "~/components/region-summary-popup";
 import Regions from "~/components/regions";
 import {
-  AssemblyDistrictStats,
-  getAssemblyDistricts,
-} from "~/db/assembly-districts";
+  CityCouncilDistrictStats,
+  getCityCouncilDistricts,
+} from "~/db/city-council-districts";
 import { searchParamsToBoundingBox } from "~/helpers";
 import { useOnMapClick } from "./_map";
 
@@ -16,7 +16,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   const { searchParams } = new URL(request.url);
   const boundingBox = searchParamsToBoundingBox(searchParams);
 
-  const assemblyDistricts = await getAssemblyDistricts(
+  const cityCouncilDistricts = await getCityCouncilDistricts(
     context.cloudflare.env.DATABASE_URL,
     request.signal,
     boundingBox
@@ -25,20 +25,20 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
   return {
     data: {
       type: "FeatureCollection",
-      features: _.map(assemblyDistricts, (assemblyDistrict) => ({
+      features: _.map(cityCouncilDistricts, (cityCouncilDistrict) => ({
         type: "Feature",
-        properties: assemblyDistrict,
-        geometry: assemblyDistrict.geomJson,
+        properties: cityCouncilDistrict,
+        geometry: cityCouncilDistrict.geomJson,
       })),
-    } as GeoJSON.FeatureCollection<GeoJSON.Geometry, AssemblyDistrictStats>,
+    } as GeoJSON.FeatureCollection<GeoJSON.Geometry, CityCouncilDistrictStats>,
   };
 }
 
-export default function AssemblyDistricts() {
+export default function CityCouncilDistricts() {
   const { data } = useLoaderData<typeof loader>();
 
   const [popupRegionStats, setPopupRegionStats] = useState<
-    AssemblyDistrictStats | undefined
+    CityCouncilDistrictStats | undefined
   >();
   const [popupKey, setPopupKey] = useState(1);
 
@@ -50,7 +50,7 @@ export default function AssemblyDistricts() {
       !_.isNil(feature.properties?.latitude) &&
       !_.isNil(feature.properties.longitude)
     ) {
-      setPopupRegionStats(feature.properties as AssemblyDistrictStats);
+      setPopupRegionStats(feature.properties as CityCouncilDistrictStats);
       setPopupKey((oldPopupKey) => oldPopupKey + 1);
     }
   }, []);
@@ -64,7 +64,7 @@ export default function AssemblyDistricts() {
           regionStats={popupRegionStats}
           onClose={() => setPopupRegionStats(undefined)}
           key={popupKey}
-          downloadLinkTo={`/assembly-districts/${popupRegionStats.assemdist}/buildings.csv`}
+          downloadLinkTo={`/city-council-districts/${popupRegionStats.coundist}/buildings.csv`}
         />
       )}
     </>

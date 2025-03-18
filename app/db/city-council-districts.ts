@@ -1,8 +1,8 @@
 import { BoundingBox } from "~/helpers";
 import connect, { executeWithAbortSignal, withConnection } from ".";
 
-export interface AssemblyDistrictStats {
-  assemdist: number;
+export interface CityCouncilDistrictStats {
+  coundist: number;
   latitude: number;
   longitude: number;
   geomJson: GeoJSON.Geometry;
@@ -14,16 +14,16 @@ export interface AssemblyDistrictStats {
   maxCoIssued: string;
 }
 
-export async function getAssemblyDistricts(
+export async function getCityCouncilDistricts(
   databaseUrl: string,
   signal: AbortSignal,
   { west, south, east, north }: BoundingBox
 ) {
   return withConnection(databaseUrl, async (sql) => {
-    return await executeWithAbortSignal<AssemblyDistrictStats[]>(
+    return await executeWithAbortSignal<CityCouncilDistrictStats[]>(
       sql`
         SELECT
-          assemdist,
+          coundist,
           geom,
           longitude,
           latitude,
@@ -34,7 +34,7 @@ export async function getAssemblyDistricts(
           eligible_units_count,
           eligible_bbls_count,
           geom_json
-        FROM gce_eligibility_nyad
+        FROM gce_eligibility_nycc
         WHERE ST_MakeEnvelope(${west}, ${south}, ${east}, ${north}, 4326) && geom
       `,
       signal
@@ -42,17 +42,17 @@ export async function getAssemblyDistricts(
   });
 }
 
-export async function* getAssemblyDistrictBuildings(
+export async function* getCityCouncilDistrictBuildings(
   databaseUrl: string,
   signal: AbortSignal,
-  assemdist: number
+  coundist: number
 ) {
   const sql = connect(databaseUrl);
   try {
     const cursor = sql`
       SELECT gce_eligibility.* FROM gce_eligibility
       JOIN pluto_latest_districts ON pluto_latest_districts.bbl = gce_eligibility.bbl
-      WHERE pluto_latest_districts.assem_dist = ${assemdist}::text
+      WHERE pluto_latest_districts.coun_dist = ${coundist}::text
   `.cursor();
     for await (const [building] of cursor) {
       if (signal.aborted) {

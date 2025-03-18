@@ -2,12 +2,25 @@ import { Sql } from "postgres";
 import { BoundingBox } from "~/helpers";
 import connect, { executeWithAbortSignal } from ".";
 
+interface HexStats {
+  zoomLevel: number;
+  longitude: number;
+  latitude: number;
+  geomJson: GeoJSON.Geometry;
+  bblsCount: number;
+  eligibleUnitsCount: number;
+  unitsres: number;
+  postHstpaRsUnits: number;
+  minCoIssued: string;
+  maxCoIssued: string;
+}
+
 export async function getHexes(
   sql: Sql,
   signal: AbortSignal,
   { zoom, west, north, east, south }: BoundingBox
 ) {
-  return await executeWithAbortSignal(
+  return await executeWithAbortSignal<HexStats[]>(
     sql`
         SELECT *
         FROM gce_eligibility_hexes
