@@ -2,7 +2,7 @@ import { BoundingBox } from "~/helpers";
 import connect, { executeWithAbortSignal, withConnection } from ".";
 
 export interface CongressDistrictStats {
-  stsendist: number;
+  congdist: number;
   latitude: number;
   longitude: number;
   geomJson: GeoJSON.Geometry;

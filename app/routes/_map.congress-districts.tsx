@@ -64,7 +64,7 @@ export default function CongressDistricts() {
           regionStats={popupRegionStats}
           onClose={() => setPopupRegionStats(undefined)}
           key={popupKey}
-          downloadLinkTo={`/congress-districts/${popupRegionStats.stsendist}/buildings.csv`}
+          downloadLinkTo={`/congress-districts/${popupRegionStats.congdist}/buildings.csv`}
         />
       )}
     </>
