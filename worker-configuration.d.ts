@@ -2,4 +2,5 @@
 
 interface Env {
 	DATABASE_URL: string;
+	MAPBOX_ACCESS_TOKEN: string;
 }

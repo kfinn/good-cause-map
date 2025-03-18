@@ -5,6 +5,7 @@ import {
 import path from "path";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
+import tailwindcss from "@tailwindcss/vite";
 
 declare module "@remix-run/cloudflare" {
   interface Future {
@@ -32,5 +33,6 @@ export default defineConfig(({ mode }) => ({
       },
     }),
     tsconfigPaths(),
+    tailwindcss(),
   ],
 }));

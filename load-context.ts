@@ -8,6 +8,7 @@ import { type PlatformProxy } from "wrangler";
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 interface Env {
   DATABASE_URL: string;
+  MAPBOX_ACCESS_TOKEN: string;
 }
 
 type Cloudflare = Omit<PlatformProxy<Env>, "dispose">;
